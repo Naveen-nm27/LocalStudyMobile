@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "LocalStudyMobile",
+    "slug": "local-study-mobile",
+    "version": "0.1.0",
+    "scheme": "localstudymobile",
+    "platforms": ["android", "ios"],
+    "userInterfaceStyle": "light",
+    "plugins": ["expo-router"],
+    "android": {
+      "package": "com.localstudymobile.app"
+    },
+    "ios": {
+      "bundleIdentifier": "com.localstudymobile.app"
+    }
+  }
+}
