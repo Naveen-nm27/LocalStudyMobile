@@ -1,5 +1,5 @@
 import { runDatabaseOperation } from './database';
-import type { ReviewSchedule } from './reviewSchedule';
+import { toStudyDay, type ReviewSchedule, type StudySession } from './reviewSchedule';
 
 export type Subject = {
   id: number;
@@ -11,6 +11,11 @@ export type Topic = ReviewSchedule & {
   id: number;
   subjectId: number;
   name: string;
+};
+
+export type Session = StudySession & {
+  id: number;
+  topicId: number;
 };
 
 function normalizeName(name: string): string {
@@ -74,5 +79,26 @@ export const studyRepository = {
       const result = await db.runAsync('UPDATE topics SET name = ? WHERE id = ?', normalized, topicId);
       if (!result.changes) throw new Error('Topic not found.');
     });
+  },
+
+  listDueTopics(today = toStudyDay(new Date())) {
+    return runDatabaseOperation((db) =>
+      db.getAllAsync<Topic>(
+        `SELECT topics.* FROM topics
+         JOIN subjects ON subjects.id = topics.subjectId
+         WHERE subjects.archivedAt IS NULL AND topics.nextReviewDay <= ?
+         ORDER BY topics.nextReviewDay, topics.id`,
+        today,
+      ),
+    );
+  },
+
+  listSessions(topicId: number) {
+    return runDatabaseOperation((db) =>
+      db.getAllAsync<Session>(
+        'SELECT * FROM sessions WHERE topicId = ? ORDER BY studyDay DESC, completedAt DESC, id DESC',
+        topicId,
+      ),
+    );
   },
 };
