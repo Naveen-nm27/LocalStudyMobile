@@ -15,7 +15,7 @@ function normalizeName(name: string): string {
 export const studyRepository = {
   listSubjects() {
     return runDatabaseOperation((db) =>
-      db.getAllAsync<Subject>('SELECT * FROM subjects ORDER BY name COLLATE NOCASE, id'),
+      db.getAllAsync<Subject>('SELECT * FROM subjects ORDER BY archivedAt IS NOT NULL, name COLLATE NOCASE, id'),
     );
   },
 
@@ -31,6 +31,18 @@ export const studyRepository = {
     const normalized = normalizeName(name);
     await runDatabaseOperation(async (db) => {
       const result = await db.runAsync('UPDATE subjects SET name = ? WHERE id = ?', normalized, subjectId);
+      if (!result.changes) throw new Error('Subject not found.');
+    });
+  },
+
+  async setSubjectArchived(subjectId: number, archived: boolean): Promise<void> {
+    await runDatabaseOperation(async (db) => {
+      const result = await db.runAsync(
+        'UPDATE subjects SET archivedAt = CASE WHEN ? THEN COALESCE(archivedAt, ?) END WHERE id = ?',
+        archived ? 1 : 0,
+        Date.now(),
+        subjectId,
+      );
       if (!result.changes) throw new Error('Subject not found.');
     });
   },
