@@ -1,5 +1,11 @@
+import type { SQLiteDatabase } from 'expo-sqlite';
 import { runDatabaseOperation } from './database';
-import { toStudyDay, type ReviewSchedule, type StudySession } from './reviewSchedule';
+import {
+  calculateReviewSchedule,
+  toStudyDay,
+  type ReviewSchedule,
+  type StudySession,
+} from './reviewSchedule';
 
 export type Subject = {
   id: number;
@@ -22,6 +28,21 @@ function normalizeName(name: string): string {
   const normalized = name.trim();
   if (!normalized) throw new Error('A name is required.');
   return normalized;
+}
+
+async function refreshSchedule(db: SQLiteDatabase, topicId: number): Promise<void> {
+  const sessions = await db.getAllAsync<StudySession>(
+    'SELECT completedAt, studyDay FROM sessions WHERE topicId = ?',
+    topicId,
+  );
+  const schedule = calculateReviewSchedule(sessions);
+  await db.runAsync(
+    'UPDATE topics SET nextReviewDay = ?, completedAt = ?, reviewsCompleted = ? WHERE id = ?',
+    schedule.nextReviewDay,
+    schedule.completedAt,
+    schedule.reviewsCompleted,
+    topicId,
+  );
 }
 
 export const studyRepository = {
@@ -99,6 +120,32 @@ export const studyRepository = {
         'SELECT * FROM sessions WHERE topicId = ? ORDER BY studyDay DESC, completedAt DESC, id DESC',
         topicId,
       ),
+    );
+  },
+
+  async recordSession(topicId: number, completion = new Date()): Promise<void> {
+    const studyDay = toStudyDay(completion);
+    const completedAt = completion.getTime();
+
+    await runDatabaseOperation((db) =>
+      db.withTransactionAsync(async () => {
+        const topic = await db.getFirstAsync<{ archivedAt: number | null }>(
+          `SELECT subjects.archivedAt FROM topics
+           JOIN subjects ON subjects.id = topics.subjectId WHERE topics.id = ?`,
+          topicId,
+        );
+        if (!topic) throw new Error('Topic not found.');
+        if (topic.archivedAt !== null) throw new Error('Restore the subject before logging a session.');
+
+        const inserted = await db.runAsync(
+          `INSERT INTO sessions (topicId, completedAt, studyDay) VALUES (?, ?, ?)
+           ON CONFLICT (topicId, completedAt) DO NOTHING`,
+          topicId,
+          completedAt,
+          studyDay,
+        );
+        if (inserted.changes) await refreshSchedule(db, topicId);
+      }),
     );
   },
 };
