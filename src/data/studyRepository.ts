@@ -148,4 +148,16 @@ export const studyRepository = {
       }),
     );
   },
+
+  async deleteSession(sessionId: number): Promise<void> {
+    await runDatabaseOperation((db) =>
+      db.withTransactionAsync(async () => {
+        const session = await db.getFirstAsync<{ topicId: number }>(
+          'DELETE FROM sessions WHERE id = ? RETURNING topicId',
+          sessionId,
+        );
+        if (session) await refreshSchedule(db, session.topicId);
+      }),
+    );
+  },
 };
