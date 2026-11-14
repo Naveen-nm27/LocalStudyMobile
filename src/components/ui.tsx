@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View, type ColorValue } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { demoStudyEnabled } from '../data/demoStudy';
@@ -38,8 +38,8 @@ export function Brand() {
   </View>;
 }
 
-export function Page({ children }: { children: ReactNode }) {
-  return <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+export function Page({ children, scrollRef }: { children: ReactNode; scrollRef?: Ref<ScrollView> }) {
+  return <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
     <View style={styles.page}>{children}</View>
   </ScrollView>;
 }
