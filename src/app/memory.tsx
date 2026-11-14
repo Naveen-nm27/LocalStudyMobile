@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ForgettingCurve } from '../components/ForgettingCurve';
 import { Dialog, StudyDialog, type DialogSpec } from '../components/StudyDialog';
 import { Badge, Button, Card, colors, Empty, Icon, Page, PageHeading, SectionTitle, StudyContent } from '../components/ui';
 import { projectReviews } from '../data/reviewSchedule';
@@ -12,6 +13,8 @@ export default function MemoryScreen() {
   const router = useRouter();
   const { topic: topicParam } = useLocalSearchParams<{ topic?: string }>();
   const { subjects, topics, today, busy } = useStudy();
+  const { width } = useWindowDimensions();
+  const wide = width >= 970 || (width >= 760 && width < 900);
   const [picker, setPicker] = useState(false);
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const [selected, setSelected] = useState<number>();
@@ -66,18 +69,31 @@ export default function MemoryScreen() {
         {loading ? <ActivityIndicator accessibilityLabel="Loading session history" color={colors.purple} /> : error ? <Card>
           <Empty icon="clock" title="Couldn’t load sessions" detail={error} action={<Button label="Retry" tone="secondary" onPress={reload} />} />
         </Card> : <>
-          <Card>
-            <SectionTitle>Review schedule</SectionTitle>
-            {reviews.length ? <>
-              <Text style={styles.meta}>Dates assume each review is completed on time.</Text>
-              {reviews.map((review, index) => <View style={styles.row} key={review.number}>
-                <View style={styles.reviewMark}><Text style={styles.reviewNumber}>{review.number}</Text></View>
-                <View style={styles.summaryCopy}><Text style={styles.rowTitle}>{review.final ? 'Final review' : `Review ${review.number}`}</Text>
-                  <Text style={styles.meta}>{formatDay(review.day, { month: 'short', day: 'numeric', year: 'numeric' })}</Text></View>
-                {index === 0 && <Badge label={review.day < today ? 'Overdue' : review.day === today ? 'Today' : 'Next'} tone={review.day <= today ? 'orange' : 'gold'} />}
-              </View>)}
-            </> : <Text style={styles.meta}>{topic.completedAt !== null ? 'All six scheduled reviews are complete.' : 'The first review is due one day after your initial study.'}</Text>}
-          </Card>
+          <View style={[styles.columns, wide && { flexDirection: 'row' }]}>
+            <View style={[styles.column, wide && { flex: 1.8 }]}>
+              <Card>
+                <SectionTitle>Forgetting curve</SectionTitle>
+                {sessions.length ? <>
+                  <Text style={styles.meta}>An illustrative model of how recall fades between practice sessions.</Text>
+                  <ForgettingCurve key={topic.id} sessions={sessions} today={today} reviewDays={reviews.map(({ day }) => day)} selectedSession={activeSession?.id} onSelect={setSelected} />
+                </> : <Empty icon="curve" title="No completed sessions yet" detail="Log your first study session to see the curve and projected review dates." />}
+              </Card>
+            </View>
+            <View style={[styles.column, wide && { flex: 1 }]}>
+              <Card>
+                <SectionTitle>Review schedule</SectionTitle>
+                {reviews.length ? <>
+                  <Text style={styles.meta}>Dates assume each review is completed on time.</Text>
+                  {reviews.map((review, index) => <View style={styles.row} key={review.number}>
+                    <View style={styles.reviewMark}><Text style={styles.reviewNumber}>{review.number}</Text></View>
+                    <View style={styles.summaryCopy}><Text style={styles.rowTitle}>{review.final ? 'Final review' : `Review ${review.number}`}</Text>
+                      <Text style={styles.meta}>{formatDay(review.day, { month: 'short', day: 'numeric', year: 'numeric' })}</Text></View>
+                    {index === 0 && <Badge label={review.day < today ? 'Overdue' : review.day === today ? 'Today' : 'Next'} tone={review.day <= today ? 'orange' : 'gold'} />}
+                  </View>)}
+                </> : <Text style={styles.meta}>{topic.completedAt !== null ? 'All six scheduled reviews are complete.' : 'The first review is due one day after your initial study.'}</Text>}
+              </Card>
+            </View>
+          </View>
           <Card>
             <SectionTitle>Session history</SectionTitle>
             <Text style={styles.meta}>{sessions.length ? plural(sessions.length, 'session') : 'Logged sessions will appear here.'}</Text>
@@ -116,6 +132,8 @@ const styles = StyleSheet.create({
   progress: { flexDirection: 'row', gap: 5, marginTop: 5 },
   segment: { flex: 1, height: 5, borderRadius: 6, backgroundColor: colors.softPlum },
   segmentDone: { backgroundColor: colors.plum },
+  columns: { alignItems: 'stretch', gap: 15 },
+  column: { minWidth: 0 },
   row: { borderTopWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', minHeight: 53, paddingVertical: 8, gap: 8 },
   selected: { backgroundColor: colors.softPlum, borderRadius: 8, paddingHorizontal: 8 },
   reviewMark: { width: 27, height: 27, borderRadius: 8, backgroundColor: colors.softPlum, alignItems: 'center', justifyContent: 'center' },
