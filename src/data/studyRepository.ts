@@ -86,6 +86,12 @@ export const studyRepository = {
     );
   },
 
+  listAllTopics() {
+    return runDatabaseOperation((db) =>
+      db.getAllAsync<Topic>('SELECT * FROM topics ORDER BY name COLLATE NOCASE, id'),
+    );
+  },
+
   async createTopic(subjectId: number, name: string): Promise<number> {
     const normalized = normalizeName(name);
     return runDatabaseOperation(async (db) => {
