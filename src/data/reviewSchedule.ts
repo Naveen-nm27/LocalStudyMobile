@@ -1,4 +1,4 @@
-const reviewGaps = [1, 3, 7, 14, 30, 60] as const;
+export const reviewGaps = [1, 3, 7, 14, 30, 60] as const;
 
 export type StudySession = {
   studyDay: string;
@@ -28,7 +28,24 @@ function addDays(studyDay: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function calculateReviewSchedule(sessions: readonly StudySession[]): ReviewSchedule {
+export function projectReviews({ nextReviewDay, reviewsCompleted }: ReviewSchedule) {
+  const reviews: { day: string; number: number; final: boolean }[] = [];
+  if (!nextReviewDay) return reviews;
+
+  let day = nextReviewDay;
+  for (let index = reviewsCompleted; index < reviewGaps.length; index += 1) {
+    if (index > reviewsCompleted) day = addDays(day, reviewGaps[index]);
+    reviews.push({ day, number: index + 1, final: index === reviewGaps.length - 1 });
+  }
+  return reviews;
+}
+
+export type SessionKind = 'Initial study' | 'Practice' | `Review ${number}` | 'Final review';
+
+export function calculateReviewSchedule(
+  sessions: readonly StudySession[],
+  onSession?: (session: StudySession, kind: SessionKind) => void,
+): ReviewSchedule {
   const ordered = [...sessions].sort(
     (a, b) => a.studyDay.localeCompare(b.studyDay) || a.completedAt - b.completedAt,
   );
@@ -39,18 +56,28 @@ export function calculateReviewSchedule(sessions: readonly StudySession[]): Revi
   }
 
   let reviewsCompleted = 0;
-  let nextReviewDay = addDays(initial.studyDay, reviewGaps[0]);
+  let nextReviewDay: string | null = addDays(initial.studyDay, reviewGaps[0]);
+  let completedAt: number | null = null;
+  onSession?.(initial, 'Initial study');
 
   for (const session of ordered.slice(1)) {
-    if (session.studyDay < nextReviewDay) continue;
+    if (!nextReviewDay || session.studyDay < nextReviewDay) {
+      onSession?.(session, 'Practice');
+      continue;
+    }
 
     reviewsCompleted += 1;
     if (reviewsCompleted === reviewGaps.length) {
-      return { nextReviewDay: null, completedAt: session.completedAt, reviewsCompleted };
+      onSession?.(session, 'Final review');
+      completedAt = session.completedAt;
+      nextReviewDay = null;
+      if (!onSession) break;
+      continue;
     }
+    onSession?.(session, `Review ${reviewsCompleted}`);
 
     nextReviewDay = addDays(session.studyDay, reviewGaps[reviewsCompleted]);
   }
 
-  return { nextReviewDay, completedAt: null, reviewsCompleted };
+  return { nextReviewDay, completedAt, reviewsCompleted };
 }
