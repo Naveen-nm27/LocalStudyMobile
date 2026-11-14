@@ -1,6 +1,7 @@
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
+import { demoStudyEnabled, seedDemoStudy } from './demoStudy';
 
-const databaseName = 'local-study.db';
+const databaseName = demoStudyEnabled ? 'local-study-demo.db' : 'local-study.db';
 const schemaVersion = 1;
 
 const initialSchema = `
@@ -48,6 +49,7 @@ async function initializeDatabase(): Promise<SQLiteDatabase> {
         throw new Error(`Unsupported study database version: ${version?.user_version}.`);
       }
     });
+    if (demoStudyEnabled) await seedDemoStudy(db);
     return db;
   } catch (error) {
     await db.closeAsync();
